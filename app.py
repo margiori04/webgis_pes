@@ -1,4 +1,5 @@
 import json
+import ast
 from pathlib import Path
 from urllib.parse import quote
 import pandas as pd
@@ -60,6 +61,36 @@ def safe(v, fallback="—"):
     s = str(v).strip()
     return s if s and s.lower() != "nan" else fallback
 
+SUBSEKTOR_MAP = {
+    1: "Tanaman pangan",
+    2: "Hortikultura",
+    3: "Perkebunan",
+    4: "Peternakan",
+    5: "Kehutanan",
+    6: "Budidaya/Penangkapan Ikan",
+    7: "Jasa Pertanian",
+}
+
+def format_subsektor(value):
+    """Ubah kode subsektor (misalnya '[2, 3, 4]') menjadi nama yang mudah dibaca."""
+    if value is None or str(value).strip() in ("", "nan", "None"):
+        return "—"
+    try:
+        parsed = ast.literal_eval(str(value))
+        codes = parsed if isinstance(parsed, (list, tuple, set)) else [parsed]
+    except (ValueError, SyntaxError):
+        codes = [x.strip() for x in str(value).strip("[] ").split(",") if x.strip()]
+    names = []
+    for code in codes:
+        try:
+            code_int = int(code)
+        except (ValueError, TypeError):
+            continue
+        name = SUBSEKTOR_MAP.get(code_int)
+        if name and name not in names:
+            names.append(name)
+    return ", ".join(names) if names else safe(value)
+
 df = load_data()
 st.caption("Peta interaktif titik landmark. Ketuk marker untuk melihat informasi dan petunjuk arah.")
 
@@ -70,7 +101,7 @@ with st.expander("🔎 Cari dan filter titik", expanded=False):
     selected_cats = st.multiselect("Kategori landmark", cats, default=cats)
     types = sorted([str(x) for x in df["tipe_landmark"].unique() if str(x).strip()])
     selected_types = st.multiselect("Tipe landmark", types, default=types)
-    only_status = st.checkbox("Hanya status aktif (status = 1)", value=True)
+    only_status = st.checkbox("Hanya status aktif (status = 1)", value=False)
     cluster = st.checkbox("Kelompokkan marker berdekatan", value=True)
 
 filtered = df.copy()
@@ -164,7 +195,14 @@ options = filtered.index.tolist()
 def label_for(i):
     r = filtered.loc[i]
     return f"{safe(r.get('nama_krt'), safe(r.get('deskripsi_project'), 'Landmark'))} | ID {safe(r.get('id'))}"
-default_position = options.index(chosen_idx) if chosen_idx in options else 0
+# Saat pertama dibuka, pilih landmark Banjar Kiadan jika tersedia.
+kiadan_mask = (
+    filtered.get("deskripsi_project", pd.Series("", index=filtered.index)).astype(str).str.contains("kiadan", case=False, na=False)
+    | filtered.get("nama_krt", pd.Series("", index=filtered.index)).astype(str).str.contains("kiadan", case=False, na=False)
+)
+kiadan_options = filtered.index[kiadan_mask].tolist()
+default_idx = chosen_idx if chosen_idx in options else (kiadan_options[0] if kiadan_options else options[0])
+default_position = options.index(default_idx)
 selected_index = st.selectbox("Pilih titik untuk melihat detail", options, index=default_position, format_func=label_for)
 r = filtered.loc[selected_index]
 name = safe(r.get("nama_krt"), safe(r.get("deskripsi_project"), "Landmark"))
@@ -185,7 +223,8 @@ with st.expander("Informasi lengkap", expanded=True):
     ]
     for j,(label,key) in enumerate(fields):
         with detail_cols[j % 3]:
-            st.markdown(f"**{label}**  \n{safe(r.get(key))}")
+            value = format_subsektor(r.get(key)) if key == "subsektor" else safe(r.get(key))
+            st.markdown(f"**{label}**  \n{value}")
     photo = safe(r.get("photo_url"), "")
     if photo.startswith("http"):
         st.markdown(f"[Lihat foto landmark]({photo})")
