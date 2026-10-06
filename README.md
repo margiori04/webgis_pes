@@ -6,7 +6,7 @@ WebGIS interaktif berbasis Streamlit + Folium untuk melihat titik koordinat dari
 - Peta interaktif dengan marker dan clustering untuk titik yang berdekatan.
 - Klik marker untuk melihat ringkasan dan tautan petunjuk arah.
 - Pilih titik untuk melihat detail atribut lengkap.
-- Filter kata kunci, kategori, tipe, dan status.
+- Filter kata kunci, kecamatan, desa (mengikuti kecamatan), kategori, tipe, dan status.
 - Tombol petunjuk arah ke titik terpilih melalui Google Maps.
 - Tabel data hasil filter dan unduh CSV.
 - Tampilan responsif untuk desktop maupun perangkat mobile.
@@ -34,3 +34,6 @@ Unggah folder proyek ini ke server Python atau layanan hosting yang mendukung St
 - Koordinat berasal dari file Excel sumber; titik tanpa koordinat valid tidak ditampilkan.
 - Peta dasar dan petunjuk arah memerlukan internet.
 - Tombol arah membuka Google Maps dengan titik tujuan yang dipilih; Google Maps dapat memakai lokasi perangkat untuk menentukan titik awal jika diizinkan.
+
+## Layar pemuatan
+Aplikasi menampilkan layar loading light mode saat data landmark dibaca dan konfigurasi peta disiapkan. Setelah peta siap ditampilkan, layar loading akan ditutup otomatis. Pemuatan tile OpenStreetMap tetap bergantung pada koneksi internet.

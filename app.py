@@ -24,12 +24,37 @@ header[data-testid="stHeader"] {background:rgba(255,255,255,.94);}
 [data-testid="stMetricValue"] {color:#0f172a; font-weight:750;}
 .stButton button, .stLinkButton a, [data-testid="stDownloadButton"] button {border-radius:14px; min-height:44px; font-weight:650;}
 .stTextInput input, [data-baseweb="select"] > div {border-radius:12px;}
+/* Dropdown/filter controls: force readable light surfaces regardless of browser theme. */
+[data-testid="stExpander"] label,
+[data-testid="stExpander"] [data-testid="stWidgetLabel"] p,
+[data-testid="stExpander"] [data-testid="stMarkdownContainer"] p {color:#334155 !important;}
+[data-baseweb="select"] > div {background:#ffffff !important; border-color:#cbd5e1 !important; color:#172033 !important;}
+[data-baseweb="select"] input,
+[data-baseweb="select"] [role="combobox"],
+[data-baseweb="select"] [data-testid="stMarkdownContainer"],
+[data-baseweb="select"] span {color:#172033 !important;}
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="menu"] {background:#ffffff !important; color:#172033 !important;}
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"] li {color:#172033 !important; background:#ffffff !important;}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] li:hover {background:#eff6ff !important;}
+[data-testid="stCheckbox"] label p {color:#334155 !important;}
 [data-testid="stExpander"] {border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; background:#fff;}
 .mobile-hero {padding:20px 22px; border:1px solid #dbeafe; border-radius:22px; background:linear-gradient(135deg,#ffffff,#eff6ff); margin-bottom:16px; box-shadow:0 4px 14px rgba(37,99,235,.06);}
 .mobile-hero .eyebrow {font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:#2563eb; font-weight:800;}
 .mobile-hero h1 {font-size:clamp(25px,4vw,34px); color:#0f172a; margin:5px 0 6px; padding:0;}
 .mobile-hero p {color:#475569; margin:0; font-size:14px;}
 .section-label {font-size:19px; font-weight:750; color:#0f172a; margin:18px 0 8px;}
+.loading-screen {position:fixed; inset:0; z-index:999999; display:flex; align-items:center; justify-content:center; background:#f8fafc; color:#0f172a; font-family:Arial,sans-serif;}
+.loading-card {display:flex; flex-direction:column; align-items:center; gap:14px; padding:28px 30px; margin:20px; width:min(340px, calc(100vw - 40px)); border:1px solid #e2e8f0; border-radius:24px; background:#fff; box-shadow:0 18px 50px rgba(15,23,42,.10); text-align:center;}
+.loading-pin {width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:18px; background:#eff6ff; color:#2563eb; font-size:27px;}
+.loading-title {font-size:18px; font-weight:800; letter-spacing:-.2px;}
+.loading-copy {font-size:13px; line-height:1.5; color:#64748b;}
+.loading-track {height:5px; width:100%; border-radius:99px; overflow:hidden; background:#e2e8f0;}
+.loading-bar {height:100%; width:38%; border-radius:99px; background:#2563eb; animation:loading-slide 1.15s ease-in-out infinite alternate;}
+@keyframes loading-slide {from {transform:translateX(0);} to {transform:translateX(160%);}}
+@media (prefers-reduced-motion: reduce) {.loading-bar {animation:none; width:65%;}}
 [data-testid="stDataFrame"] {border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;}
 @media (max-width: 700px) {
  .block-container {padding:.65rem .65rem 3rem;}
@@ -91,12 +116,35 @@ def format_subsektor(value):
             names.append(name)
     return ", ".join(names) if names else safe(value)
 
-df = load_data()
-st.caption("Peta interaktif titik landmark. Ketuk marker untuk melihat informasi dan petunjuk arah.")
+# Overlay loading awal: tampil saat data dibaca dan peta disiapkan.
+_loading_placeholder = st.empty()
+_loading_placeholder.markdown("""
+<div class="loading-screen">
+  <div class="loading-card">
+    <div class="loading-pin">📍</div>
+    <div class="loading-title">WebGIS Landmark</div>
+    <div class="loading-copy">Sedang memuat data landmark dan menyiapkan peta.<br>Mohon tunggu sebentar…</div>
+    <div class="loading-track"><div class="loading-bar"></div></div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+with st.spinner("Memuat data landmark…"):
+    df = load_data()
+
+st.caption("Peta interaktif titik landmark. Ketuk marker untuk melihat informasi dan petunjuk arah. Zoom dapat diperbesar hingga level 25; pada level tinggi, detail mengikuti resolusi tile peta yang tersedia.")
 
 with st.expander("🔎 Cari dan filter titik", expanded=False):
     st.caption("Filter ditampilkan di halaman utama agar tidak tertutup panel samping pada layar ponsel.")
     search = st.text_input("Cari nama / ID / WID / deskripsi", placeholder="Contoh: Tiyingan")
+    kecamatan_values = sorted([str(x) for x in df.get("Kecamatan", pd.Series(dtype=str)).unique() if str(x).strip()])
+    selected_kecamatan = st.multiselect("Kecamatan", kecamatan_values, default=kecamatan_values, placeholder="Pilih kecamatan")
+    if selected_kecamatan:
+        desa_source = df[df["Kecamatan"].astype(str).isin(selected_kecamatan)]
+    else:
+        desa_source = df.iloc[0:0]
+    desa_values = sorted([str(x) for x in desa_source.get("Desa", pd.Series(dtype=str)).unique() if str(x).strip()])
+    selected_desa = st.multiselect("Desa", desa_values, default=desa_values, placeholder="Pilih desa")
     cats = sorted([str(x) for x in df["kategori_landmark"].unique() if str(x).strip()])
     selected_cats = st.multiselect("Kategori landmark", cats, default=cats)
     types = sorted([str(x) for x in df["tipe_landmark"].unique() if str(x).strip()])
@@ -105,6 +153,14 @@ with st.expander("🔎 Cari dan filter titik", expanded=False):
     cluster = st.checkbox("Kelompokkan marker berdekatan", value=True)
 
 filtered = df.copy()
+if selected_kecamatan:
+    filtered = filtered[filtered["Kecamatan"].astype(str).isin(selected_kecamatan)]
+else:
+    filtered = filtered.iloc[0:0]
+if selected_desa:
+    filtered = filtered[filtered["Desa"].astype(str).isin(selected_desa)]
+else:
+    filtered = filtered.iloc[0:0]
 if search.strip():
     mask = filtered.astype(str).apply(lambda col: col.str.contains(search.strip(), case=False, na=False)).any(axis=1)
     filtered = filtered[mask]
@@ -136,6 +192,7 @@ m = folium.Map(
     control_scale=True,
     tiles=None,
     prefer_canvas=True,
+    max_zoom=25,
 )
 # Gunakan satu basemap saja. Sebelumnya layer CARTO ditumpuk di atas OSM,
 # sehingga tile CARTO bertuliskan API KEY REQUIRED menutupi peta.
@@ -145,7 +202,8 @@ folium.TileLayer(
     name="OpenStreetMap",
     overlay=False,
     control=True,
-    max_zoom=19,
+    max_zoom=25,
+    max_native_zoom=19,
 ).add_to(m)
 Fullscreen(position="topleft").add_to(m)
 LocateControl(auto_start=False, position="topleft").add_to(m)
@@ -178,6 +236,8 @@ for _, r in filtered.iterrows():
     ).add_to(group)
 
 folium.LayerControl(collapsed=True).add_to(m)
+# Tutup overlay setelah data dan konfigurasi peta siap ditampilkan.
+_loading_placeholder.empty()
 map_result = st_folium(m, height=460, use_container_width=True, returned_objects=["last_object_clicked", "last_object_clicked_popup"])
 
 # Clicked marker coords, then resolve nearest source row for details
@@ -215,7 +275,8 @@ with st.expander("Informasi lengkap", expanded=True):
     detail_cols = st.columns(3)
     fields = [
         ("ID", "id"), ("WID", "wid"), ("Deskripsi proyek", "deskripsi_project"),
-        ("ID desa", "iddesa"), ("Status", "status"), ("Akurasi GPS (m)", "accuracy"),
+        ("Kecamatan", "Kecamatan"), ("Desa", "Desa"), ("ID desa", "iddesa"),
+        ("Status", "status"), ("Akurasi GPS (m)", "accuracy"),
         ("Dibuat oleh", "user_creator_nama"), ("Waktu dibuat", "user_created_at"),
         ("Waktu unggah", "user_upload_at"), ("Jumlah ART tani", "jumlah_art_tani"),
         ("Subsektor", "subsektor"), ("Kode kategori", "kode_kategori"),
@@ -235,7 +296,7 @@ b1.link_button("🧭 Tunjukkan arah ke titik ini", directions, use_container_wid
 b2.link_button("📍 Buka di Google Maps", google_maps, use_container_width=True)
 
 with st.expander("Tabel data yang sedang ditampilkan"):
-    visible_cols = [c for c in ["id","wid","nama_krt","kategori_landmark","tipe_landmark","deskripsi_project","latitude","longitude","status"] if c in filtered.columns]
+    visible_cols = [c for c in ["id","wid","nama_krt","Kecamatan","Desa","kategori_landmark","tipe_landmark","deskripsi_project","latitude","longitude","status"] if c in filtered.columns]
     st.dataframe(filtered[visible_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
     st.download_button("Unduh data hasil filter (CSV)", filtered.to_csv(index=False).encode("utf-8-sig"),
                        file_name="landmark_hasil_filter.csv", mime="text/csv")

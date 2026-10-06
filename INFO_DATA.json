@@ -1,6 +1,7 @@
 {
-  "rows": 1377,
-  "valid_coordinates": 1377,
+  "source_file": "11_landmark_5103.xlsx",
+  "sheet": "Sheet 1",
+  "rows": 23818,
   "columns": [
     "id",
     "wid",
@@ -8,6 +9,8 @@
     "nm_project",
     "deskripsi_project",
     "iddesa",
+    "Kecamatan",
+    "Desa",
     "latitude",
     "longitude",
     "accuracy",
@@ -24,7 +27,8 @@
     "jumlah_art_tani",
     "subsektor"
   ],
-  "unique_categories": 1,
-  "missing_lat": 0,
-  "missing_lon": 0
+  "filters_added": [
+    "Kecamatan",
+    "Desa (dependent on selected kecamatan)"
+  ]
 }
